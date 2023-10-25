@@ -8,6 +8,7 @@ from google.auth.exceptions import TransportError  # type: ignore
 
 from ApiInteraction import ApiInteraction
 from FileManagement import FileManagement
+from config import USER_EMAIL, KEYWORDS
 
 class Maileg:
     """
@@ -36,7 +37,7 @@ class Maileg:
         Orchestrates the email search, filtering, response, and calendar event scheduling based on user settings.
     """
 
-    def __init__(self, mail : str, keywords : list):
+    def __init__(self, mail : str = USER_EMAIL, keywords : list = KEYWORDS):
         """
         Initializes a new instance of the Maileg class with specific user email and keywords.
 
