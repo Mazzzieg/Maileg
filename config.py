@@ -3,9 +3,9 @@ Configuration settings for the Maileg script. Set the variables to suit your spe
 """
 
 # Gmail settings
-USER_EMAIL: str = "kub4sinski@gmail.com"  # Your Gmail address
+USER_EMAIL: str = "your-email@gmail.com"  # Your Gmail address
 # Keywords that might be used by customer in mail, that script will be filtering and searching for
-KEYWORDS: list = ["termin", "chujdupa"]
+KEYWORDS: list = ["keyword_1", "keyword_2"]
 CALENDAR_OPTIONAL_HOUR_NAME: str = "wolne"  # NOT case-sensitive
 # Email settings
 
