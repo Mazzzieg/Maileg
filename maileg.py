@@ -4,7 +4,7 @@ from logging import Logger
 import os
 import sys
 
-from google.auth.exceptions import TransportError  # type: ignore
+from google.auth.exceptions import TransportError, RefreshError  # type: ignore
 
 from ApiInteraction import ApiInteraction
 from FileManagement import FileManagement
@@ -35,7 +35,8 @@ class Maileg:
     logging_configure(self)
         Sets up a custom logger specific to the user's email address.
     main(self, how_many_days: int)
-        Orchestrates the email search, filtering, response, and calendar event scheduling based on user settings.
+        Orchestrates the email search, filtering, response,
+        and calendar event scheduling based on user settings.
     """
 
     def __init__(self, mail: str = USER_EMAIL, keywords: list = KEYWORDS):
@@ -59,6 +60,14 @@ class Maileg:
                 self.logger, self.keywords, self.user_mail
             )
             self.api_interactor.authenticate()
+        except RefreshError:
+            self.logger.error(
+                "Token has been expired or revoked. Dealing with it by replacing it with the new one."
+                )
+            os.remove(
+                f"./users/{self.user_mail}/token.pickle"
+                )
+            self.api_interactor.authenticate()
         except TransportError:
             self.logger.error("There is no internet connection.")
             sys.exit(
@@ -73,13 +82,15 @@ class Maileg:
         """
         Configures the logging for tracking the operations of the Maileg instance.
 
-        The logger is customized to store logs in a user-specific directory, creating a new log file each day.
+        The logger is customized to store logs in a user-specific directory,
+        creating a new log file each day.
         Log files are named after the current date for ease of reference.
 
         Returns
         -------
         logging.Logger
-            A configured Logger instance that logs events tied to the user's email, storing them in daily log files.
+            A configured Logger instance that logs events tied to the user's email,
+            storing them in daily log files.
         """
         logging_path = (
             f"./users/{self.user_mail}/logs/{datetime.today().strftime('%Y-%m-%d')}.log"
@@ -107,10 +118,12 @@ class Maileg:
 
     def main(self, how_many_days: int):
         """
-        Executes the main operations of the Maileg instance for email management and calendar scheduling.
+        Executes the main operations of the Maileg instance
+        for email management and calendar scheduling.
 
-        Retrieves and processes emails from the past specified number of days, filters them based on pre-set
-        conditions, and handles automated email responses and calendar event scheduling.
+        Retrieves and processes emails from the past specified number of days,
+        filters them based on pre-set conditions,
+        and handles automated email responses and calendar event scheduling.
 
         Parameters
         ----------

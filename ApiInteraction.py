@@ -28,14 +28,18 @@ MAX_RETRIES = 5
 
 def handle_api_errors(func):
     """
-    A decorator to add automatic retry and exception handling mechanisms to functions that perform API calls.
+    A decorator to add automatic retry and exception handling mechanisms
+    to functions that perform API calls.
 
-    This decorator catches exceptions related to HTTP errors, server not found, and other general exceptions.
-    In the case of specific HTTP errors (status codes 403, 500, 503), it implements a retry mechanism with a
-    progressive delay. For other exceptions, it stops the execution and logs the error. If all retries fail,
-    the last caught exception is re-raised.
+    This decorator catches exceptions related to HTTP errors,
+    server not found, and other general exceptions.
+    In the case of specific HTTP errors (status codes 403, 500, 503),
+    it implements a retry mechanism with a progressive delay.
+    For other exceptions, it stops the execution and logs the error.
+    If all retries fail, the last caught exception is re-raised.
 
-    The wrapped function can be any function that performs API calls and may raise the mentioned exceptions.
+    The wrapped function can be any function that performs API calls
+    and may raise the mentioned exceptions.
 
     Args:
         func (Callable): The function to wrap. This function is expected to perform an API call.
@@ -91,12 +95,19 @@ class ApiInteraction:
     """
     Manages interactions with the Google API, specifically Gmail and Google Calendar services.
 
-    This class encapsulates the functionality for authenticating with the Google API and performing various operations on a user's Gmail and Google Calendar data. Operations include sending emails, searching for specific messages in Gmail, marking emails as read, and reading and processing customer responses from Gmail messages. It also manages the user's workout scheduling by reading customer's preferred workout hours from their responses.
+    This class encapsulates the functionality for authenticating
+    with the Google API and performing various operations on a user's Gmail
+    and Google Calendar data. Operations include sending emails,
+    searching for specific messages in Gmail, marking emails as read,
+    and reading and processing customer responses from Gmail messages.
+    It also manages the user's workout scheduling by reading customer's
+    preferred workout hours from their responses.
 
     Attributes
     ----------
     user_mail : str
-        The email address of the user, used for sending emails and making requests on behalf of this user.
+        The email address of the user, used for sending emails
+        and making requests on behalf of this user.
     logger : logging.Logger
         The logger instance used to log messages and operations performed by the API interactions.
     keywords : list
@@ -114,7 +125,8 @@ class ApiInteraction:
     file_management : FileManagement
         An instance of FileManagement class used for handling user credentials.
     utility : UtilityFunctions
-        An instance of UtilityFunctions class used for various utility functions like date formatting.
+        An instance of UtilityFunctions class used for various
+        utility functions like date formatting.
     something_happened : bool
         A flag used to indicate if an important event (like receiving a specific email) happened.
     """
@@ -128,9 +140,9 @@ class ApiInteraction:
             "https://www.googleapis.com/auth/calendar",
         ]
         self.messages: list = []
-        self.counter: int = 0
         self.gyms: list = []
         self.dates: list = []
+        self.formatted_workout_strings: list = []
         self.list_of_optional_hours: list = []
         self.file_management = FileManagement(self.logger, self.user_mail)
         self.utility = UtilityFunctions(self.logger)
@@ -165,11 +177,11 @@ class ApiInteraction:
                     pickle.dump(creds, token)
 
         self.gmail_service = (
-            (build("gmail", "v1", credentials=creds)).users().messages()
-        )  # pylint:disable=maybe-no-member
+            (build("gmail", "v1", credentials=creds)).users().messages()  # pylint:disable=maybe-no-member
+        )
         self.calendar_service = build("calendar", "v3", credentials=creds)
 
-    # main functions
+    # Main functions
     def build_message(self, destination: str, subject: str, body: str) -> dict:
         """
         Builds a message for sending in send_message function.
@@ -205,7 +217,8 @@ class ApiInteraction:
     @handle_api_errors
     def search_messages(self, query: str) -> List[dict]:
         """
-        Search for messages in the user's Gmail account based on a query using Gmail search operators.
+        Search for messages in the user's Gmail account based
+        on a query using Gmail search operators.
 
         Args:
             query (str): The query string for searching messages.
@@ -254,7 +267,7 @@ class ApiInteraction:
             None: If no match is found.
         """
         try:
-            # attempt to retrieve and format the email body content
+            # Attempt to retrieve and format the email body content
             raw_body = self.one_message_keyword_filter.get("body", "")
             filtered_body = (
                 raw_body.split(">", 1)[0].replace("  ", " ").replace("\n", "")
@@ -270,20 +283,20 @@ class ApiInteraction:
                 formatted_string_without_spaces = formatted_string.lower().replace(
                     " ", ""
                 )
-                # check for a match in the customers response
+                # Check for a match in the customers response
                 if (
                     formatted_string in filtered_body
                     or formatted_string_without_spaces in filtered_body_without_spaces
                 ):
                     return item
             except ValueError:
-                # handle the case where item doesn't have the expected format
+                # Handle the case where item doesn't have the expected format
                 self.logger.warning("Unexpected format in list_of_optional_hours.")
                 continue
             except Exception as e:
                 self.logger.error("Error processing optional hours: %s", e)
                 continue
-        return []  # no match was found
+        return []  # No match was found
 
     # CONFIRMATION
     @handle_api_errors
@@ -330,8 +343,8 @@ class ApiInteraction:
                 ):
                     event_id = event["id"]
                     updated_event = (
-                        self.calendar_service.events()
-                        .get(  # pylint:disable=maybe-no-member
+                        self.calendar_service.events()  # pylint:disable=maybe-no-member
+                        .get(
                             calendarId="primary", eventId=event_id
                         )
                         .execute()
@@ -359,10 +372,11 @@ class ApiInteraction:
         Retrieve and process Google Calendar events to offer workout options to customers.
         """
         events_result = (
-            self.calendar_service.events()
-            .list(  # pylint:disable=maybe-no-member
+            self.calendar_service.events()  # pylint:disable=maybe-no-member
+            .list(
                 calendarId="primary",
-                timeMin=datetime.utcnow().isoformat() + "Z",  # 'Z' indicates UTC time,
+                # 'Z' indicates UTC time,
+                timeMin=datetime.utcnow().isoformat() + "Z",
                 timeZone="UTC+1:00",
                 maxResults=15,
                 singleEvents=True,
@@ -411,6 +425,18 @@ class ApiInteraction:
             )
 
     # RECIEVED MAILS
+    def extract_name_from_email(self, header_from):
+        """
+        Extracts the sender's name from the email header.
+        If the name is absent, defaults to "Customer".
+        """
+        customer_name = header_from.split("<")[0].strip()
+        customer_name = customer_name.replace('"', "")
+        if "@" not in customer_name:
+            return customer_name
+        else:
+            return "Customer"
+
     def handle_response(self, sender_email: str) -> None:
         """
         Handle a response from a sender whose email we have been waiting for.
@@ -457,7 +483,8 @@ class ApiInteraction:
                 if it's neither.
 
         Raises:
-            ValueError: If 'receiving_time' is not in the proper date format or if an invalid date is provided.
+            ValueError: If 'receiving_time' is not in the proper date format
+            or if an invalid date is provided.
         """
         receiving_time_dt = self.utility.string_to_datetime(receiving_time)
         if sender in self.file_management.sent_mails_waiting_for_answer_or_confirmation:
@@ -493,7 +520,7 @@ class ApiInteraction:
                 data = body.get("data")
                 part_headers = part.get("headers")
                 if part.get("parts"):
-                    # calling this function when we see that a part has parts inside
+                    # Calling this function when we see that a part has parts inside
                     self.parse_parts_with_keywords(part.get("parts"), mail)
                 if mime_type == "text/plain":
                     if data:
@@ -508,7 +535,7 @@ class ApiInteraction:
                             urlsafe_b64decode(data).decode()
                         )
                 else:
-                    # attachment other than a plain text or HTML
+                    # Attachment other than a plain text or HTML
                     for part_header in part_headers:
                         part_header_name = part_header.get("name")
                         part_header_value = part_header.get("value")
@@ -577,7 +604,9 @@ class ApiInteraction:
         """
         self.one_message_keyword_filter: dict = {}
 
-        msg = self.gmail_service.get(userId="me", id=mail["id"], format="full").execute()  # type: ignore
+        msg = self.gmail_service.get(
+            userId="me", id=mail["id"], format="full"  # type: ignore
+            ).execute()
 
         payload = msg.get("payload", {})
         headers = payload.get("headers", [])
@@ -589,7 +618,8 @@ class ApiInteraction:
     # FIRST MAIL
     def received_message_filer_first_mail(self) -> bool:
         """
-        Filter received emails for those containing any of the delivered keywords and return a boolean value.
+        Filter received emails for those containing any of
+        the delivered keywords and return a boolean value.
 
         Returns:
             bool: True if keywords are found in the email, False otherwise.
@@ -607,25 +637,18 @@ class ApiInteraction:
         Returns:
             str: A string representing the available workout options.
         """
-        formatted_strings = []
-        for item in self.list_of_optional_hours:
-            date_time, _, location = item
-            formatted_strings.append(
-                f"\n {date_time.split('T')[0]} ({self.utility.day_of_a_week(date_time)}) o godz. {date_time.split('T')[1][0:-9]} na siłowni {location}"
-            )
-        return "\n".join(formatted_strings)
-
-    def extract_name_from_email(self, header_from):
-        """
-        Extracts the sender's name from the email header. If the name is absent, defaults to "Customer".
-        """
-        customer_name = header_from.split("<")[0].strip()
-        customer_name = customer_name.replace('"', "")
-        return customer_name if customer_name else "Customer"
+        if not self.formatted_workout_strings:    
+            for item in self.list_of_optional_hours:
+                date_time, _, location = item
+                self.formatted_workout_strings.append(
+                    f"\n {date_time.split('T')[0]} ({self.utility.day_of_a_week(date_time)}) o godz. {date_time.split('T')[1][0:-9]} na siłowni {location}"
+                )
+        return "\n".join(self.formatted_workout_strings)
 
     def answering_to_first_mail(self, customer_name) -> None:
         """
-        Answer the first email that passed the filter and is from a new customer (not waiting for an answer/confirmation).
+        Answer the first email that passed the filter
+        and is from a new customer (not waiting for an answer/confirmation).
         """
         if self.file_management.mails_to_answer:
             self.calendar_stuff()
@@ -652,14 +675,11 @@ class ApiInteraction:
         if self.received_message_filer_first_mail():
             header_from = self.one_message_keyword_filter.get("from")
             customer_name = self.extract_name_from_email(header_from)
-            self.counter += 1
             self.file_management.mails_to_answer[sender_email] = self.one_message_keyword_filter["subject"]  # type: ignore
             self.file_management.save_message_content(self.one_message_keyword_filter)
             self.file_management.txt_file_cleaner()
             self.something_happened = True
             self.answering_to_first_mail(customer_name)
-        else:
-            print("But it wasn't anything important...")
 
     def received_email_filters(self) -> None:
         """

@@ -1,16 +1,16 @@
-"""
-Configuration settings for the Maileg script. Set the variables to suit your specific needs.
-"""
+#Configuration settings for the Maileg script. Set the variables to suit your specific needs.
 
 # Gmail settings
-USER_EMAIL: str = "your-email@gmail.com"  # Your Gmail address
+USER_EMAIL: str = "your-email@gmail.com" 
+
 # Keywords that might be used by customer in mail, that script will be filtering and searching for
 KEYWORDS: list = ["keyword_1", "keyword_2"]
-CALENDAR_OPTIONAL_HOUR_NAME: str = "wolne"  # NOT case-sensitive
+
+# NOT case-sensitive
+CALENDAR_OPTIONAL_HOUR_NAME: str = "wolne"
+
 # Email settings
-
-
-def auto_reply(customer_name, workouts):
+def auto_reply(customer_name: str, workouts: str):
     """
     Function generating answer to a first mail.
     """
@@ -29,7 +29,7 @@ Best Regards,
     return reply
 
 
-def auto_confirmation(workout_datetime, location, customer_name):
+def auto_confirmation(workout_datetime: str, location: str, customer_name: str):
     """
     Function generating confirmation of scheduling a workout.
     """

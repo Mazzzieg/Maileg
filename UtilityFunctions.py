@@ -107,6 +107,8 @@ class UtilityFunctions:
         """
         try:
             if "+0000" in value:
+                if value.endswith(" (UTC)"):
+                    value = value.rsplit(" ", 1)[0]
                 original_date = datetime.strptime(
                     value, "%a, %d %b %Y %H:%M:%S %z"
                 ) + timedelta(hours=2)
@@ -115,7 +117,7 @@ class UtilityFunctions:
             return original_date.strftime("%d/%m/%Y %H:%M:%S")
         except ValueError as e:
             self.logger.error("Date formatting error: %s", str(e), exc_info=True)
-            return value
+            raise ValueError from e
 
     def string_to_datetime(self, datetime_string):
         """

@@ -6,9 +6,13 @@ from UtilityFunctions import UtilityFunctions
 
 class FileManagement:
     """
-    Manages file operations related to user emails, including searching for credentials, cleaning text files, and managing lists of emails awaiting responses.
+    Manages file operations related to user emails, including searching for credentials,
+    cleaning text files, and managing lists of emails awaiting responses.
 
-    This class provides methods for handling various file operations necessary for email management. It ensures user credentials are properly stored, maintains records of emails that require responses, and performs cleaning operations on text files to ensure they are readable and free of unnecessary whitespace.
+    This class provides methods for handling various file operations necessary for email management.
+    It ensures user credentials are properly stored,
+    maintains records of emails that require responses, and performs cleaning operations
+    on text files to ensure they are readable and free of unnecessary whitespace.
 
     Attributes
     ----------
@@ -21,14 +25,16 @@ class FileManagement:
     mails_to_answer : dict
         A dictionary containing emails that need to be answered.
     sent_mails_waiting_for_answer_or_confirmation : dict
-        A dictionary containing sent emails for which the user is awaiting a response or confirmation.
+        A dictionary containing sent emails for which
+        the user is awaiting a response or confirmation.
 
     Methods
     -------
     __init__(self, logger, user_mail: str)
         Constructs all the necessary attributes for the FileManagement object.
     creds_finder(self)
-        Searches for the 'credentials.json' file in predefined locations and moves it to a user-specific directory.
+        Searches for the 'credentials.json' file in predefined locations
+        and moves it to a user-specific directory.
     txt_file_cleaner(self) -> None
         Removes all blank spaces from an output text file to clean up the content.
     remove_from_waiting_list(self, sender_email: str) -> None
@@ -36,7 +42,8 @@ class FileManagement:
     add_to_waiting_list(self) -> None
         Adds emails to a file listing those awaiting a response.
     update_sent_mails_waiting_for_answer_from_file(self) -> None
-        Updates the dictionary of emails awaiting a response based on the contents of a designated text file.
+        Updates the dictionary of emails awaiting a response based
+        on the contents of a designated text file.
     save_message_content(self, one_message_keyword_filter: dict) -> None
         Writes answered mail to a .txt file.
     """
@@ -56,27 +63,38 @@ class FileManagement:
         self.logger = logger
         if not os.path.exists(f"./users/{self.user_mail}/mails"):
             os.makedirs(f"./users/{self.user_mail}/mails")
-        self.folder_name: str = f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}.txt"
+        self.folder_name: str = (
+            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}.txt"
+        )
         self.mails_to_answer: dict = {}
         self.sent_mails_waiting_for_answer_or_confirmation: dict = {}
         self.utility = UtilityFunctions(self.logger)
 
     def creds_finder(self):
         """
-        Searches for a user's credentials file in predefined locations and moves it to a user-specific directory.
+        Searches for a user's credentials file in predefined locations
+        and moves it to a user-specific directory.
 
-        This method looks for a 'credentials.json' file in several predefined locations. If the file is found,
-        it is moved to a 'users/{user_mail}' directory. The search stops after finding and moving the file
-        from the first location. If the file is not found in any of the predefined locations, a FileNotFoundError
-        is raised. If an error occurs during the file operation, it is logged and the respective exception is raised.
+        This method looks for a 'credentials.json' file in several predefined locations.
+        If the file is found, it is moved to a 'users/{user_mail}' directory.
+        The search stops after finding and moving the file from the first location.
+        If the file is not found in any of the predefined locations, a FileNotFoundError
+        is raised. If an error occurs during the file operation,
+        it is logged and the respective exception is raised.
 
         Raises:
-            FileNotFoundError: Raised if the credentials file is not found in any of the expected locations.
-            OSError: Raised for operating system-related errors like 'file not found' or 'permission issues'.
-            Exception: Raised for any other unexpected issues that occur while moving the credentials file.
+            FileNotFoundError:
+                Raised if the credentials file is not found in any of the expected locations.
+            OSError:
+                Raised for operating system-related errors like 'file not found' or 'permission issues'.
+            Exception:
+                Raised for any other unexpected issues that occur while moving the credentials file.
         """
         locations_to_check = [
             "./credentials.json",
+            f"./{self.user_mail}.json",
+            os.path.expanduser(f"./users/{self.user_mail}/credentials.json"),
+            os.path.expanduser(f"./users/{self.user_mail}/{self.user_mail}.json"),
             os.path.expanduser("~/Downloads/credentials.json"),
             os.path.expanduser(f"~/Downloads/{self.user_mail}.json"),
             os.path.expanduser("~/Desktop/credentials.json"),
@@ -91,9 +109,11 @@ class FileManagement:
                         os.makedirs(destination_dir)
                     shutil.move(location, f"{destination_dir}/{self.user_mail}.json")
                     file_found = True
-                    break  # stop after moving the file from the first location found
+                    # Stop after moving the file from the first location found
+                    break
                 except OSError as e:
-                    # Specific error handling for OSError, which includes file not found and permission issues
+                    # Specific error handling for OSError,
+                    # which includes file not found and permission issues
                     self.logger.error(
                         "An operating system error occurred while moving the credentials file: %e",
                         e,
@@ -160,30 +180,34 @@ class FileManagement:
                 # Convert the stored date-time string to a datetime object
                 date_time_obj = datetime.strptime(date_of_responce, "%d/%m/%Y %H:%M:%S")
                 # Reformat the datetime object to the desired string format
-                formatted_date_of_response = date_time_obj.strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                )
+                formatted_date_of_response = date_time_obj
                 f.write(f"\n  {customers_mail}: {formatted_date_of_response}")
+        self.mails_to_answer = {}
+        self.sent_mails_waiting_for_answer_or_confirmation = {}
 
     def update_sent_mails_waiting_for_answer_from_file(self) -> None:
         """
         Update the dictionary tracking emails for which the user awaits a response.
 
-        This method reads entries from a designated text file, each containing an email address and a timestamp,
-        then updates a dictionary that maps email addresses to datetime objects indicating when a response was received.
-        The file is expected to reside in a user-specific directory and its entries are in the format:
-        'email: YYYY-MM-DDTHH:MM:SSZ'.
+        This method reads entries from a designated text file,
+        each containing an email address and a timestamp, then updates a dictionary
+        that maps email addresses to datetime objects indicating when a response was received.
+        The file is expected to reside in a user-specific directory
+        and its entries are in the format: 'email: YYYY-MM-DDTHH:MM:SSZ'.
 
-        If the file does not exist, the method simply returns without making any changes. If an unexpected error occurs
-        while reading the file, the method logs the error with full traceback information for debugging purposes and
-        re-raises the exception, allowing the calling code to handle it.
+        If the file does not exist, the method simply returns without making any changes.
+        If an unexpected error occurs while reading the file,
+        the method logs the error with full traceback information
+        for debugging purposes and re-raises the exception,
+        allowing the calling code to handle it.
 
         Expected file format for each line:
             email: YYYY-MM-DDTHH:MM:SSZ
 
         Raises:
-            Exception: If an unforeseen error occurs during file reading, the exception is logged and then re-raised
-                    to be handled by the calling context.
+            Exception: If an unforeseen error occurs during file reading,
+                    the exception is logged and then re-raised to be handled
+                    by the calling context.
         """
         file_path = f"./users/{self.user_mail}/mails_waiting_for_answer.txt"
         if os.path.exists(file_path):
@@ -203,7 +227,7 @@ class FileManagement:
                             except ValueError:
                                 self.logger.error(
                                     "Invalid date format for 'receiving_time': %s."
-                                    "Expected format is 'YYYY-MM-DDTHH:MM:SSZ'.",
+                                    "Expected format is 'D/M/Y H:M:S'.",
                                     date_time_str,
                                 )
                                 raise ValueError
@@ -212,7 +236,7 @@ class FileManagement:
                         else:
                             self.logger.error(
                                 "Invalid line format in %s: %s. "
-                                "Expected format is 'email: YYYY-MM-DDTHH:MM:SSZ'. Skipping...",
+                                "Expected format is 'email: 'D/M/Y H:M:S'. Skipping...",
                                 file_path,
                                 line,
                             )
