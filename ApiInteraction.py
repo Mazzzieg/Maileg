@@ -354,7 +354,7 @@ class ApiInteraction:
                         updated_event["attendees"].append(new_attendee)
                     else:
                         updated_event["attendees"] = [new_attendee]
-                    updated_event["summary"] = f"{customer_name}"
+                    updated_event["summary"] = f"Training - {customer_name}"
                     self.calendar_service.events().update(  # pylint:disable=maybe-no-member
                         calendarId="primary", eventId=event_id, body=updated_event
                     ).execute()
@@ -432,10 +432,7 @@ class ApiInteraction:
         """
         customer_name = header_from.split("<")[0].strip()
         customer_name = customer_name.replace('"', "")
-        if "@" not in customer_name:
-            return customer_name
-        else:
-            return "Customer"
+        return customer_name
 
     def handle_response(self, sender_email: str) -> None:
         """
