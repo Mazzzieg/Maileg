@@ -22,7 +22,6 @@ class FileManagement:
         The logger instance used to log messages and operations performed by the class.
     folder_name : str
         Path to the folder where daily mail records are stored.
-    mails_to_answer : dict
         A dictionary containing emails that need to be answered.
     sent_mails_waiting_for_answer_or_confirmation : dict
         A dictionary containing sent emails for which
@@ -66,8 +65,7 @@ class FileManagement:
         self.folder_name: str = (
             f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}.txt"
         )
-        self.mails_to_answer: dict = {}
-        self.sent_mails_waiting_for_answer_or_confirmation: dict = {}
+        self.sent_mails_waiting_for_answer_or_confirmation: list = []
         self.utility = UtilityFunctions(self.logger)
 
     def creds_finder(self):
@@ -173,17 +171,10 @@ class FileManagement:
             "a",
             encoding="UTF-8",
         ) as f:
-            for (
-                customers_mail,
-                date_of_responce,
-            ) in self.sent_mails_waiting_for_answer_or_confirmation.items():
-                # Convert the stored date-time string to a datetime object
-                date_time_obj = datetime.strptime(date_of_responce, "%d/%m/%Y %H:%M:%S")
-                # Reformat the datetime object to the desired string format
-                formatted_date_of_response = date_time_obj
-                f.write(f"\n  {customers_mail}: {formatted_date_of_response}")
-        self.mails_to_answer = {}
-        self.sent_mails_waiting_for_answer_or_confirmation = {}
+            for dictionary_of_sender in self.sent_mails_waiting_for_answer_or_confirmation:
+                for customers_mail, date_of_response in dictionary_of_sender.items():
+                    # Reformat the datetime object to the desired string format
+                    f.write(f"\n  {customers_mail}: {date_of_response}")
 
     def update_sent_mails_waiting_for_answer_from_file(self) -> None:
         """
@@ -193,7 +184,7 @@ class FileManagement:
         each containing an email address and a timestamp, then updates a dictionary
         that maps email addresses to datetime objects indicating when a response was received.
         The file is expected to reside in a user-specific directory
-        and its entries are in the format: 'email: YYYY-MM-DDTHH:MM:SSZ'.
+        and its entries are in the format: 'email: "D/M/Y H:M:S".
 
         If the file does not exist, the method simply returns without making any changes.
         If an unexpected error occurs while reading the file,
@@ -202,7 +193,7 @@ class FileManagement:
         allowing the calling code to handle it.
 
         Expected file format for each line:
-            email: YYYY-MM-DDTHH:MM:SSZ
+            email: "D/M/Y H:M:S"
 
         Raises:
             Exception: If an unforeseen error occurs during file reading,
@@ -221,9 +212,8 @@ class FileManagement:
                                 date_time_obj = self.utility.string_to_datetime(
                                     date_time_str
                                 )
-                                self.sent_mails_waiting_for_answer_or_confirmation[
-                                    email
-                                ] = date_time_obj
+                                self.sent_mails_waiting_for_answer_or_confirmation.append(
+                                    {email : date_time_obj})
                             except ValueError:
                                 self.logger.error(
                                     "Invalid date format for 'receiving_time': %s."

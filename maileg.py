@@ -134,8 +134,8 @@ class Maileg:
         results = self.api_interactor.search_messages(
             f"to:me newer_than:{str(how_many_days)}d Is:unread"
         )
-        self.logger.info("Found %s result(s).", len(results))
-        print(f"Found {len(results)} result(s).")
+        self.logger.info("Recieved %s message(s).", len(results))
+        print(f"Recieved {len(results)} message(s).")
 
         # If the script is run more than once per day, remove the previous output file
         if results and os.path.isfile(self.file_manager.folder_name):
@@ -146,6 +146,15 @@ class Maileg:
             self.api_interactor.read_message(message)
             self.api_interactor.received_email_filters()
 
+        # Answering for all the first mails sent from customers
+        if self.api_interactor.mails_to_answer:
+            self.logger.info(
+                "Recieved %s new message(s) filtered as QUESTIONS.",
+                len(self.api_interactor.mails_to_answer)
+                )
+            print(f"Recieved {len(self.api_interactor.mails_to_answer)} new message(s) filtered as QUESTIONS.")
+            self.api_interactor.answering_to_first_mails()
+
         # Remove 'unread' label from analyzed emails to prevent reprocessing
         self.api_interactor.mark_as_read(
             f"to:me newer_than:{str(how_many_days)}d Is:unread"
@@ -153,3 +162,5 @@ class Maileg:
 
         if self.api_interactor.something_happened is False:
             print("Everything is working fine and there was nothing to do :)")
+        else:
+            print("DONE! :)")

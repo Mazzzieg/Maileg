@@ -142,6 +142,7 @@ class ApiInteraction:
         self.messages: list = []
         self.gyms: list = []
         self.dates: list = []
+        self.mails_to_answer: list = []
         self.formatted_workout_strings: list = []
         self.list_of_optional_hours: list = []
         self.file_management = FileManagement(self.logger, self.user_mail)
@@ -391,6 +392,7 @@ class ApiInteraction:
             print(
                 f'CANNOT RESPOND TO ALL THE MAILS WITHOUT INFORMATION ABOUT AVAILABLE WORKOUTS ("{CALENDAR_OPTIONAL_HOUR_NAME}").'
             )
+            self.logger.error("SCRIPT HAS BEEN STOPPED. CANNOT RESPOND TO ALL THE MAILS WITHOUT INFORMATION ABOUT AVAILABLE WORKOUTS")
             sys.exit(
                 "Script has been stopped. Please provide the optional workout hours (IN YOUR CALENDAR) to proceed."
             )
@@ -484,18 +486,21 @@ class ApiInteraction:
             or if an invalid date is provided.
         """
         receiving_time_dt = self.utility.string_to_datetime(receiving_time)
-        if sender in self.file_management.sent_mails_waiting_for_answer_or_confirmation:
-            sent_time = (
-                self.file_management.sent_mails_waiting_for_answer_or_confirmation[
-                    sender
-                ]
-            )
-            if receiving_time_dt > sent_time:
+        keys = list(set(key for d in self.file_management.sent_mails_waiting_for_answer_or_confirmation for key in d.keys()))
+        if sender in keys:
+            sent_time = [
+                d[sender]
+                for d in self.file_management.sent_mails_waiting_for_answer_or_confirmation
+                if sender in d
+                ][0]
+            if (
+                    receiving_time_dt > sent_time
+                    ):
                 return "RESPONSE"
         if (
-            sender
-            not in self.file_management.sent_mails_waiting_for_answer_or_confirmation
-        ):
+                sender
+                not in keys
+            ):
             return "QUESTION"
         return ""
 
@@ -634,7 +639,7 @@ class ApiInteraction:
         Returns:
             str: A string representing the available workout options.
         """
-        if not self.formatted_workout_strings:    
+        if not self.formatted_workout_strings:
             for item in self.list_of_optional_hours:
                 date_time, _, location = item
                 self.formatted_workout_strings.append(
@@ -642,21 +647,22 @@ class ApiInteraction:
                 )
         return "\n".join(self.formatted_workout_strings)
 
-    def answering_to_first_mail(self, customer_name) -> None:
+    def answering_to_first_mails(self) -> None:
         """
         Answer the first email that passed the filter
         and is from a new customer (not waiting for an answer/confirmation).
         """
-        if self.file_management.mails_to_answer:
-            self.calendar_stuff()
+        if self.mails_to_answer:
+            if not self.list_of_optional_hours:
+                self.calendar_stuff()
             workout_options = self.prepare_workout_options()
-            for mail in self.file_management.mails_to_answer.items():
-                body = auto_reply(customer_name, workout_options)
+            for mail in self.mails_to_answer:
+                body = auto_reply(mail[2], workout_options)
                 self.send_message(mail[0], f"RE:{mail[1]}", body)
-                print(f"Response has been sent to {customer_name} - {mail[0]}")
-                self.file_management.sent_mails_waiting_for_answer_or_confirmation[
-                    mail[0]
-                ] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                print(f"Response has been sent to {mail[2]} - {mail[0]}")
+                self.file_management.sent_mails_waiting_for_answer_or_confirmation.append(
+                    {mail[0] : datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+                    )
             self.file_management.add_to_waiting_list()
         else:
             if not self.something_happened:
@@ -672,11 +678,10 @@ class ApiInteraction:
         if self.received_message_filer_first_mail():
             header_from = self.one_message_keyword_filter.get("from")
             customer_name = self.extract_name_from_email(header_from)
-            self.file_management.mails_to_answer[sender_email] = self.one_message_keyword_filter["subject"]  # type: ignore
+            self.mails_to_answer.append((sender_email, self.one_message_keyword_filter["subject"], customer_name))  # type: ignore
             self.file_management.save_message_content(self.one_message_keyword_filter)
             self.file_management.txt_file_cleaner()
             self.something_happened = True
-            self.answering_to_first_mail(customer_name)
 
     def received_email_filters(self) -> None:
         """

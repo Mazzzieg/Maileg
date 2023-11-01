@@ -162,7 +162,19 @@ class UtilityFunctions:
         for fmt in formats:
             try:
                 # Attempt to create a datetime object using the current format
-                return datetime.strptime(datetime_string, fmt)
+                datetime_object = (
+                    datetime.strptime(
+                        datetime_string,
+                        fmt
+                        )
+                )
+                return datetime.strptime(
+                    datetime.strftime(
+                        datetime_object,
+                        "%d/%m/%Y %H:%M:%S"
+                        ),
+                    "%d/%m/%Y %H:%M:%S"
+                    )
             except ValueError:
                 continue
         raise ValueError(
