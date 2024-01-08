@@ -68,6 +68,7 @@ class Maileg:
                 f"./users/{self.user_mail}/token.pickle"
                 )
             self.api_interactor.authenticate()
+            os.system('cls')
         except TransportError:
             self.logger.error("There is no internet connection.")
             sys.exit(
@@ -137,10 +138,6 @@ class Maileg:
         self.logger.info("Recieved %s message(s).", len(results))
         print(f"Recieved {len(results)} message(s).")
 
-        # If the script is run more than once per day, remove the previous output file
-        if results and os.path.isfile(self.file_manager.folder_name):
-            os.remove(self.file_manager.folder_name)
-
         # For each matched email, read and filter it
         for message in results:
             self.api_interactor.read_message(message)
@@ -149,16 +146,17 @@ class Maileg:
         # Answering for all the first mails sent from customers
         if self.api_interactor.mails_to_answer:
             self.logger.info(
-                "Recieved %s new message(s) filtered as QUESTIONS.",
+                "Recieved %s new message(s) filtered as QUESTION(S).",
                 len(self.api_interactor.mails_to_answer)
                 )
-            print(f"Recieved {len(self.api_interactor.mails_to_answer)} new message(s) filtered as QUESTIONS.")
+            print(f"Recieved {len(self.api_interactor.mails_to_answer)} new message(s) filtered as QUESTION(S).")
             self.api_interactor.answering_to_first_mails()
 
         # Remove 'unread' label from analyzed emails to prevent reprocessing
-        self.api_interactor.mark_as_read(
-            f"to:me newer_than:{str(how_many_days)}d Is:unread"
-        )
+        if self.api_interactor.removing_unread_label_blocker is False:
+            self.api_interactor.mark_as_read(
+                f"to:me newer_than:{str(how_many_days)}d Is:unread"
+            )
 
         if self.api_interactor.something_happened is False:
             print("Everything is working fine and there was nothing to do :)")

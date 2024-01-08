@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from config import LANGUAGE
 
 
 class UtilityFunctions:
@@ -53,7 +54,7 @@ class UtilityFunctions:
             b /= factor
         return f"{b:.2f}Y{suffix}"
 
-    def day_of_a_week(self, date_time: str) -> str:
+    def day_of_a_week(self, date_time: str, language: str = LANGUAGE) -> str:
         """
         Returns the day of the week for a given date and time from a Gmail Calendar, in Polish.
 
@@ -70,15 +71,46 @@ class UtilityFunctions:
         Returns:
             str: The day of the week in Polish.
         """
-        weekdays = {
-            0: "Poniedziałek",
-            1: "Wtorek",
-            2: "Środa",
-            3: "Czwartek",
-            4: "Piątek",
-            5: "Sobota",
-            6: "Niedziela",
-        }
+        if language.lower() == "polski":
+            weekdays = {
+                0: "Poniedziałek",
+                1: "Wtorek",
+                2: "Środa",
+                3: "Czwartek",
+                4: "Piątek",
+                5: "Sobota",
+                6: "Niedziela",
+            }
+        if language.lower() == "german":
+            weekdays = {
+                0: "Montag",
+                1: "Dienstag",
+                2: "Mittwoch",
+                3: "Donnerstag",
+                4: "Freitag",
+                5: "Samstag",
+                6: "Sonntag",
+            }
+        if language.lower() == "spanish":
+            weekdays = {
+                0: "Lunes",
+                1: "Martes",
+                2: "Miércoles",
+                3: "Jueves",
+                4: "Viernes",
+                5: "Sábado",
+                6: "Domingo",
+            }
+        else:
+            weekdays = {
+                0: "Monday",
+                1: "Tuesday",
+                2: "Wednesday",
+                3: "Thursday",
+                4: "Friday",
+                5: "Saturday",
+                6: "Sunday",
+            }
         try:
             date = date_time.split("T")[0]
             date_parsed = datetime.strptime(date, "%Y-%m-%d")

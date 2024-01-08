@@ -3,7 +3,6 @@ from datetime import datetime
 import shutil
 from UtilityFunctions import UtilityFunctions
 
-
 class FileManagement:
     """
     Manages file operations related to user emails, including searching for credentials,
@@ -63,7 +62,10 @@ class FileManagement:
         if not os.path.exists(f"./users/{self.user_mail}/mails"):
             os.makedirs(f"./users/{self.user_mail}/mails")
         self.folder_name: str = (
-            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}.txt"
+            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}"
+        )
+        self.file_name: str = (
+            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}/{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
         )
         self.sent_mails_waiting_for_answer_or_confirmation: list = []
         self.utility = UtilityFunctions(self.logger)
@@ -137,11 +139,11 @@ class FileManagement:
             file (str): The file path to clean.
         """
         cleaned = []
-        with open(self.folder_name, "r", encoding="utf-8") as r:
+        with open(self.file_name, "r", encoding="utf-8") as r:
             for line in r:
                 if line.strip():
                     cleaned.append(line)
-        with open(self.folder_name, "w", encoding="utf-8") as w:
+        with open(self.file_name, "w", encoding="utf-8") as w:
             for line in cleaned:
                 w.write(line)
 
@@ -173,8 +175,9 @@ class FileManagement:
         ) as f:
             for dictionary_of_sender in self.sent_mails_waiting_for_answer_or_confirmation:
                 for customers_mail, date_of_response in dictionary_of_sender.items():
-                    # Reformat the datetime object to the desired string format
-                    f.write(f"\n  {customers_mail}: {date_of_response}")
+                    if customers_mail and date_of_response:
+                        # Reformat the datetime object to the desired string format
+                        f.write(f"\n  {customers_mail}: {date_of_response}")
 
     def update_sent_mails_waiting_for_answer_from_file(self) -> None:
         """
@@ -242,7 +245,22 @@ class FileManagement:
         """
         Save the content of the already answered first message from a new customer to a .txt file.
         """
-        with open(self.folder_name, "a", errors="ignore", encoding="utf-8") as f:
+        if not os.path.exists(self.folder_name):
+            os.makedirs(self.folder_name)
+        if not os.path.exists(self.file_name):
+            with open(
+                self.file_name,
+                "w",
+                errors="ignore",
+                encoding="utf-8"
+                ) as f:
+                pass
+        with open(
+            self.file_name,
+            "a",
+            errors="ignore",
+            encoding="utf-8"
+            ) as f:
             for key, message_value in one_message_keyword_filter.items():
                 f.write(f"\n  {key.title()}:")
                 f.write(f"\n  {message_value}")
