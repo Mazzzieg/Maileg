@@ -1,10 +1,9 @@
-from datetime import datetime
-import logging
-from logging import Logger
 import os
 import sys
+import logging
+from datetime import datetime
 
-from google.auth.exceptions import TransportError, RefreshError  # type: ignore
+from google.auth.exceptions import TransportError, RefreshError  # type: ignore # pylint: disable=import-error
 
 from ApiInteraction import ApiInteraction
 from FileManagement import FileManagement
@@ -54,32 +53,17 @@ class Maileg:
         self.keywords: list = keywords
 
         self.logger = self.logging_configure()
-        self.logger.info("START OF A SCRIPT")
-        try:
-            self.api_interactor = ApiInteraction(
-                self.logger, self.keywords, self.user_mail
+        self.api_interactor = ApiInteraction(
+            self.logger,
+            self.keywords,
+            self.user_mail
             )
-            self.api_interactor.authenticate()
-        except RefreshError:
-            self.logger.error(
-                "Token has been expired or revoked. Dealing with it by replacing it with the new one."
-                )
-            os.remove(
-                f"./users/{self.user_mail}/token.pickle"
-                )
-            self.api_interactor.authenticate()
-            os.system('cls')
-        except TransportError:
-            self.logger.error("There is no internet connection.")
-            sys.exit(
-                "There is NO INTERNET CONNECTION. Please make sure you have access to the internet and try running the script again."
+        self.file_manager = FileManagement(
+            self.logger,
+            self.user_mail
             )
-        self.gmail_service = self.api_interactor.gmail_service
-        self.calendar_service = self.api_interactor.calendar_service
 
-        self.file_manager = FileManagement(self.logger, self.user_mail)
-
-    def logging_configure(self) -> Logger:
+    def logging_configure(self) -> logging.Logger:
         """
         Configures the logging for tracking the operations of the Maileg instance.
 
@@ -117,33 +101,82 @@ class Maileg:
             logger.addHandler(handler)
         return logger
 
-    def main(self, how_many_days: int):
+    def authenticate_api(self) -> None:
         """
-        Executes the main operations of the Maileg instance
-        for email management and calendar scheduling.
+        Authenticates with the Google API and initializes the API interaction services.
+        """
+        try:
+            self.api_interactor.authenticate()
+        except RefreshError:
+            self.logger.error("Token expired. Re-authenticating with a new token.")
+            self.handle_token_refresh()
+        except TransportError:
+            self.logger.error("No internet connection.")
+            sys.exit("No internet connection. Please check your network and try again.")
 
-        Retrieves and processes emails from the past specified number of days,
-        filters them based on pre-set conditions,
-        and handles automated email responses and calendar event scheduling.
+    def handle_token_refresh(self) -> None:
+        """
+        Handles the refresh of the Google API token.
+        """
+        token_path = f"./users/{self.user_mail}/token.pickle"
+        if os.path.exists(token_path):
+            os.remove(token_path)
+        self.api_interactor.authenticate()
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    def process_emails(self, how_many_days: int) -> None:
+        """
+        Processes emails from the specified number of past days.
+
+        This method retrieves all unread emails from the past 'how_many_days' and processes each one.
+        It calls 'process_individual_email' for each email and then 'finalize_email_processing'
+        to handle post-processing tasks.
 
         Parameters
         ----------
         how_many_days : int
-            Number of past days from which to retrieve and process emails.
+            The number of days in the past from which to process unread emails.
         """
-        # Get emails that match the specified query
-        results = self.api_interactor.search_messages(
-            f"to:me newer_than:{str(how_many_days)}d Is:unread"
-        )
-        self.logger.info("Recieved %s message(s).", len(results))
+        results = self.api_interactor.search_messages(f"to:me newer_than:{how_many_days}d Is:unread")
         print(f"Recieved {len(results)} message(s).")
-
-        # For each matched email, read and filter it
+        self.logger.info("Received %s message(s).", len(results))
         for message in results:
-            self.api_interactor.read_message(message)
-            self.api_interactor.received_email_filters()
+            self.process_individual_email(message)
+        self.finalize_email_processing(f"to:me newer_than:{how_many_days}d Is:unread")
 
-        # Answering for all the first mails sent from customers
+    def process_individual_email(self, message) -> None:
+        """
+        Processes an individual email message.
+
+        This method reads a single email message and applies any necessary filtering
+        as defined in the 'ApiInteraction' class. It's typically called for each email
+        retrieved by 'process_emails'.
+        Parameters
+        ----------
+        message : dict
+            A dictionary representing an email message, typically including details like message ID.
+        """
+        self.api_interactor.read_message(message)
+        self.api_interactor.received_email_filters()
+
+    def finalize_email_processing(self, query) -> None:
+        """
+        Finalizes the email processing routine.
+
+        This method performs the final steps in the email processing workflow. It involves responding to
+        new messages filtered as questions and marking processed emails as read to prevent reprocessing.
+        It also provides feedback on the overall process completion.
+
+        Parameters
+        ----------
+        query : str
+            The query string used to retrieve and process the emails. It is used here to mark emails as read.
+
+        Notes
+        -----
+        This method relies on the 'ApiInteraction' instance for operations like marking emails as read
+        and responding to messages.
+        """
         if self.api_interactor.mails_to_answer:
             self.logger.info(
                 "Recieved %s new message(s) filtered as QUESTION(S).",
@@ -154,11 +187,25 @@ class Maileg:
 
         # Remove 'unread' label from analyzed emails to prevent reprocessing
         if self.api_interactor.removing_unread_label_blocker is False:
-            self.api_interactor.mark_as_read(
-                f"to:me newer_than:{str(how_many_days)}d Is:unread"
-            )
+            self.api_interactor.mark_as_read(query)
 
         if self.api_interactor.something_happened is False:
             print("Everything is working fine and there was nothing to do :)")
         else:
             print("DONE! :)")
+
+    def main(self, how_many_days: int) -> None:
+        """
+        Main method orchestrating the email and calendar management process.
+
+        Parameters
+        ----------
+        how_many_days : int
+            Number of days to look back for processing emails.
+        """
+        self.logger.info("Starting email processing for the past %d days.", how_many_days)
+        self.authenticate_api()
+        self.gmail_service = self.api_interactor.gmail_service
+        self.calendar_service = self.api_interactor.calendar_service
+        self.process_emails(how_many_days)
+        self.logger.info("Email processing completed.")

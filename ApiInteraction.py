@@ -11,20 +11,23 @@ import time
 from typing import List, Dict, Any
 
 # Third-party library imports
-from googleapiclient.discovery import build  # type: ignore
-from googleapiclient.errors import HttpError  # type: ignore
-from google.auth.transport.requests import Request  # type: ignore
-from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
-import html2text
+from googleapiclient.discovery import build  # type: ignore  # pylint: disable=import-error
+from googleapiclient.errors import HttpError  # type: ignore # pylint: disable=import-error
+from google.auth.transport.requests import Request  # type: ignore # pylint: disable=import-error
+from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore # pylint: disable=import-error
+import html2text # type: ignore # pylint: disable=import-error
 
 # Local application/library specific imports
 from FileManagement import FileManagement
 from UtilityFunctions import UtilityFunctions
-from config import auto_reply, auto_confirmation, workout_hour_form, CALENDAR_OPTIONAL_HOUR_NAME
+from config import (
+    auto_reply,
+    auto_confirmation,
+    workout_hour_form,
+    CALENDAR_OPTIONAL_HOUR_NAME
+    )
 
-
-MAX_RETRIES = 5
-
+MAX_RETRIES = 3
 
 def handle_api_errors(func):
     """
@@ -129,6 +132,8 @@ class ApiInteraction:
         utility functions like date formatting.
     something_happened : bool
         A flag used to indicate if an important event (like receiving a specific email) happened.
+     removing_unread_label_blocker : bool
+        A flag used to indicate if some error occured and removing "UNREAD" label from processed should be blocked.
     """
 
     def __init__(self, logger, keywords: list, user_mail: str):
@@ -290,7 +295,7 @@ class ApiInteraction:
                 date_time, _, location = item
                 formatted_string = workout_hour_form(
                     date_time.split('T')[0],
-                    self.utility.day_of_a_week(date_time),
+                    self.utility.translator(self.utility.day_of_a_week(date_time)),
                     date_time.split('T')[1][0:-9],
                     location
                     )
@@ -327,8 +332,9 @@ class ApiInteraction:
         date_time, _, location = sender_choice
         subject, confirmation_body = auto_confirmation(
             date_time.split('T')[0],
-            self.utility.day_of_a_week(date_time),
+            self.utility.translator(self.utility.day_of_a_week(date_time)),
             date_time.split('T')[1][0:-9],
+            self.utility.translator('training'),
             location,
             customer_name
             )
@@ -373,7 +379,7 @@ class ApiInteraction:
                         updated_event["attendees"].append(new_attendee)
                     else:
                         updated_event["attendees"] = [new_attendee]
-                    updated_event["summary"] = f"Training - {customer_name}"
+                    updated_event["summary"] = f"{self.utility.translator('training').title()} - {customer_name}"
                     self.calendar_service.events().update(  # pylint:disable=maybe-no-member
                         calendarId="primary", eventId=event_id, body=updated_event
                     ).execute()
@@ -667,7 +673,7 @@ class ApiInteraction:
                 self.formatted_workout_strings.append(
                     workout_hour_form(
                         date_time.split('T')[0],
-                        self.utility.day_of_a_week(date_time),
+                        self.utility.translator(self.utility.day_of_a_week(date_time)),
                         date_time.split('T')[1][0:-9],
                         location))
         return "\n".join(self.formatted_workout_strings)

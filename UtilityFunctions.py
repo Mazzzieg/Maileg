@@ -54,7 +54,7 @@ class UtilityFunctions:
             b /= factor
         return f"{b:.2f}Y{suffix}"
 
-    def day_of_a_week(self, date_time: str, language: str = LANGUAGE) -> str:
+    def day_of_a_week(self, date_time: str) -> str:
         """
         Returns the day of the week for a given date and time from a Gmail Calendar, in Polish.
 
@@ -69,63 +69,52 @@ class UtilityFunctions:
                             'YYYY-MM-DDTHH:MM:SSZ' format.
 
         Returns:
-            str: The day of the week in Polish.
+            str: The day of the week in language chosen in config.
         """
-        if language.lower() == "polski":
-            weekdays = {
-                0: "Poniedziałek",
-                1: "Wtorek",
-                2: "Środa",
-                3: "Czwartek",
-                4: "Piątek",
-                5: "Sobota",
-                6: "Niedziela",
-            }
-        if language.lower() == "german":
-            weekdays = {
-                0: "Montag",
-                1: "Dienstag",
-                2: "Mittwoch",
-                3: "Donnerstag",
-                4: "Freitag",
-                5: "Samstag",
-                6: "Sonntag",
-            }
-        if language.lower() == "spanish":
-            weekdays = {
-                0: "Lunes",
-                1: "Martes",
-                2: "Miércoles",
-                3: "Jueves",
-                4: "Viernes",
-                5: "Sábado",
-                6: "Domingo",
-            }
-        else:
-            weekdays = {
-                0: "Monday",
-                1: "Tuesday",
-                2: "Wednesday",
-                3: "Thursday",
-                4: "Friday",
-                5: "Saturday",
-                6: "Sunday",
-            }
         try:
-            date = date_time.split("T")[0]
-            date_parsed = datetime.strptime(date, "%Y-%m-%d")
+            date_parsed = datetime.strptime(date_time.split("T")[0], "%Y-%m-%d")
+            day_name = date_parsed.strftime('%A')
+            return self.translator(day_name.lower(), LANGUAGE).capitalize()
         except ValueError as e:
-            self.logger.error("Error parsing date string %s: %e", date_time, str(e))
-            raise ValueError(
-                f"Invalid date or format: {date_time}. Expected format: 'YYYY-MM-DDTHH:MM:SSZ'"
-            ) from e
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error when parsing date string %s : %e", date_time, str(e)
-            )
-            raise
-        weekday_value = datetime.weekday(date_parsed)
-        return weekdays[weekday_value]
+            self.logger.error("Error parsing date string %s: %s", date_time, str(e))
+            raise ValueError(f"Invalid date or format: {date_time}.") from e
+
+    def translator(self, word: str, language: str = LANGUAGE) -> str:
+        """
+        Translate a given English word into a specified language.
+
+        The function takes an English word and translates it into Polish, German, or Spanish based on the specified language. 
+        It currently supports translation of days of the week and the word 'training'.
+
+        Parameters:
+        - word (str): The English word to be translated. Supported words are 'training', 'monday', 'tuesday', 'wednesday', 
+                    'thursday', 'friday', 'saturday', and 'sunday'.
+        - language (str, optional): The target language for translation. Defaults to the class constant LANGUAGE. 
+                                    Supported languages are 'polski', 'german', and 'spanish'.
+
+        Returns:
+        - str: The translated word in the specified language.
+
+        Raises:
+        - KeyError: If the input word is not in the supported list of words.
+
+        Examples:
+        - translator('monday', 'polski') -> 'poniedziałek'
+        - translator('training', 'spanish') -> 'ejercicio'
+        """
+        translations = {
+            'polski': {'training': 'trening', 'monday': 'poniedziałek', 'tuesday': 'wtorek', 'wednesday' : 'środa', 'thursday' : 'czwartek', 'friday' : 'piątek', 'saturday' : 'sobota', 'sunday' : 'niedziela'},
+            'german': {'training': 'training', 'monday': 'montag', 'tuesday': 'dienstag', 'wednesday' : 'mittwoch', 'thursday' : 'donnerstag', 'friday' : 'freitag', 'saturday' : 'samstag', 'sunday' : 'sonntag'},
+            'spanish': {'training': 'ejercicio', 'monday': 'lunes', 'tuesday': 'martes', 'wednesday' : 'miércoles', 'thursday' : 'jueves', 'friday' : 'viernes', 'saturday' : 'sábado', 'sunday' : 'domingo'}
+        }
+        if language:
+            try:
+                return translations[language][word.lower()]
+            except KeyError:
+                self.logger.warning("Translation for '%s' in '%s' not found. Using English word.", word, language)
+                return word
+        else:
+            return word
 
     def format_date(self, value: str) -> str:
         """

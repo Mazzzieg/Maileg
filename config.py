@@ -38,12 +38,12 @@ def workout_hour_form(date: str, day_of_a_week: str, hour: str, location: str):
     hour = f"{date} ({day_of_a_week}) at {hour} in {location}"
     return hour
 
-def auto_confirmation(date: str, day_of_a_week: str, hour: str, location: str, customer_name: str):
+def auto_confirmation(date: str, day_of_a_week: str, hour: str, workout_in_correct_language : str, location: str, customer_name: str):
     """
     Function generating confirmation of scheduling a workout.
     """
     # Confirmations mail subject
-    subject = f"Confirmation - workout {date} ({day_of_a_week}) at {hour}"
+    subject = f"Confirmation - {workout_in_correct_language.capitalize()} {date} ({day_of_a_week}) at {hour}"
     
     # Message for confirmation emails
     reply = f"""

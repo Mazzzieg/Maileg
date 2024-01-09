@@ -1,4 +1,5 @@
 import os
+import tempfile
 from datetime import datetime
 import shutil
 from UtilityFunctions import UtilityFunctions
@@ -59,16 +60,40 @@ class FileManagement:
         """
         self.user_mail: str = user_mail
         self.logger = logger
-        if not os.path.exists(f"./users/{self.user_mail}/mails"):
-            os.makedirs(f"./users/{self.user_mail}/mails")
-        self.folder_name: str = (
-            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}"
-        )
-        self.file_name: str = (
-            f"./users/{self.user_mail}/mails/{datetime.today().strftime('%Y-%m-%d')}/{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
-        )
         self.sent_mails_waiting_for_answer_or_confirmation: list = []
         self.utility = UtilityFunctions(self.logger)
+        self.setup_user_directories()
+
+    def setup_user_directories(self):
+        """
+        Set up necessary directories for the user's email management.
+
+        This method creates a directory structure under the './users/{user_email}' path to organize email-related files. 
+        It ensures that the base user directory, a 'mails' subdirectory, and a subdirectory for the current date exist.
+        The method also initializes the 'folder_name' attribute to the path of today's directory and 
+        the 'file_name' attribute to a timestamped text file within this directory. 
+        These paths are used for storing and managing email-related files.
+
+        Directories created:
+        - './users/{user_email}': The base directory for the user.
+        - './users/{user_email}/mails': Subdirectory for storing mail-related files.
+        - './users/{user_email}/mails/{YYYY-MM-DD}': Subdirectory for storing files specific to the current date.
+
+        Attributes Set:
+        - folder_name (str): Path to the current day's directory for storing email files.
+        - file_name (str): Path to a timestamped text file within the current day's directory for logging or record-keeping.
+        """
+        user_dir = f"./users/{self.user_mail}"
+        if not os.path.exists(user_dir):
+            os.makedirs(user_dir)
+        mails_dir = f"{user_dir}/mails"
+        if not os.path.exists(mails_dir):
+            os.makedirs(mails_dir)
+        today_dir = f"{mails_dir}/{datetime.today().strftime('%Y-%m-%d')}"
+        if not os.path.exists(today_dir):
+            os.makedirs(today_dir)
+        self.folder_name = today_dir
+        self.file_name = f"{today_dir}/{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
 
     def creds_finder(self):
         """
@@ -133,19 +158,35 @@ class FileManagement:
 
     def txt_file_cleaner(self) -> None:
         """
-        Erase all the blank spaces in an output file.
+        Erase all the blank spaces from lines in a text file.
+
+        This method reads a text file line by line, removes lines that contain only whitespace, 
+        and writes the cleaned content back to the file. It operates in a memory-efficient way 
+        and ensures the original file is replaced only after successful processing.
 
         Args:
-            file (str): The file path to clean.
+            file_path (str, optional): The path to the text file to be cleaned. 
+                                    If not provided, uses the default file path set in the object.
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            OSError: For issues like permission errors or IO errors during file operations.
         """
-        cleaned = []
-        with open(self.file_name, "r", encoding="utf-8") as r:
-            for line in r:
-                if line.strip():
-                    cleaned.append(line)
-        with open(self.file_name, "w", encoding="utf-8") as w:
-            for line in cleaned:
-                w.write(line)
+
+        if not os.path.exists(self.file_name):
+            self.logger.error("File %s does not exist. Cannot clean non existing file.", self.file_name)
+
+        temp_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8")
+        try:
+            with open(self.file_name, "r", encoding="utf-8") as file:
+                for line in file:
+                    if line.strip():
+                        temp_file.write(line)
+            temp_file.close()
+            shutil.move(temp_file.name, self.file_name)
+        except OSError as e:
+            os.remove(temp_file.name)
+            self.logger.error("Error processing file %s: %s", self.file_name, e)
 
     def remove_from_waiting_list(self, sender_email: str) -> None:
         """
@@ -154,29 +195,28 @@ class FileManagement:
         Args:
             sender_email (str): The email address that has been responded to.
         """
+        file_path = f"./users/{self.user_mail}/mails_waiting_for_answer.txt"
+        if not os.path.exists(file_path):
+            self.logger.warning(f"File {file_path} not found.")
+            return
         try:
-            file_path = f"./users/{self.user_mail}/mails_waiting_for_answer.txt"
             with open(file_path, "r", encoding="UTF-8") as f:
-                lines = [line for line in f if sender_email not in line]
-
+                lines = f.readlines()
             with open(file_path, "w", encoding="UTF-8") as f:
-                f.writelines(lines)
+                f.writelines(line for line in lines if sender_email not in line)
         except Exception as e:
             self.logger.error("Error updating waiting list: %s", e, exc_info=True)
+            raise
 
     def add_to_waiting_list(self) -> None:
         """
         Update the list of emails waiting for a response.
         """
-        with open(
-            f"./users/{self.user_mail}/mails_waiting_for_answer.txt",
-            "a",
-            encoding="UTF-8",
-        ) as f:
+        file_path = f"./users/{self.user_mail}/mails_waiting_for_answer.txt"
+        with open(file_path, "a", encoding="UTF-8") as f:
             for dictionary_of_sender in self.sent_mails_waiting_for_answer_or_confirmation:
                 for customers_mail, date_of_response in dictionary_of_sender.items():
                     if customers_mail and date_of_response:
-                        # Reformat the datetime object to the desired string format
                         f.write(f"\n  {customers_mail}: {date_of_response}")
 
     def update_sent_mails_waiting_for_answer_from_file(self) -> None:
@@ -245,23 +285,6 @@ class FileManagement:
         """
         Save the content of the already answered first message from a new customer to a .txt file.
         """
-        if not os.path.exists(self.folder_name):
-            os.makedirs(self.folder_name)
-        if not os.path.exists(self.file_name):
-            with open(
-                self.file_name,
-                "w",
-                errors="ignore",
-                encoding="utf-8"
-                ) as f:
-                pass
-        with open(
-            self.file_name,
-            "a",
-            errors="ignore",
-            encoding="utf-8"
-            ) as f:
+        with open(self.file_name, "a", errors="ignore", encoding="utf-8") as f:
             for key, message_value in one_message_keyword_filter.items():
-                f.write(f"\n  {key.title()}:")
-                f.write(f"\n  {message_value}")
-            f.write("\n" + "=" * 50)
+                f.write(f"\n{key.title()}:\n{message_value}\n" + "=" * 50 + "\n")
