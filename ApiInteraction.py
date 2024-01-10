@@ -11,20 +11,23 @@ import time
 from typing import List, Dict, Any
 
 # Third-party library imports
-from googleapiclient.discovery import build  # type: ignore
-from googleapiclient.errors import HttpError  # type: ignore
-from google.auth.transport.requests import Request  # type: ignore
-from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
-import html2text
+from googleapiclient.discovery import build  # type: ignore  # pylint: disable=import-error
+from googleapiclient.errors import HttpError  # type: ignore # pylint: disable=import-error
+from google.auth.transport.requests import Request  # type: ignore # pylint: disable=import-error
+from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore # pylint: disable=import-error
+import html2text # type: ignore # pylint: disable=import-error
 
 # Local application/library specific imports
 from FileManagement import FileManagement
 from UtilityFunctions import UtilityFunctions
-from config import auto_reply, auto_confirmation, CALENDAR_OPTIONAL_HOUR_NAME
+from config import (
+    auto_reply,
+    auto_confirmation,
+    workout_hour_form,
+    CALENDAR_OPTIONAL_HOUR_NAME
+    )
 
-
-MAX_RETRIES = 5
-
+MAX_RETRIES = 3
 
 def handle_api_errors(func):
     """
@@ -129,6 +132,8 @@ class ApiInteraction:
         utility functions like date formatting.
     something_happened : bool
         A flag used to indicate if an important event (like receiving a specific email) happened.
+     removing_unread_label_blocker : bool
+        A flag used to indicate if some error occured and removing "UNREAD" label from processed should be blocked.
     """
 
     def __init__(self, logger, keywords: list, user_mail: str):
@@ -148,6 +153,7 @@ class ApiInteraction:
         self.file_management = FileManagement(self.logger, self.user_mail)
         self.utility = UtilityFunctions(self.logger)
         self.something_happened = False
+        self.removing_unread_label_blocker = False
 
     def authenticate(self) -> None:
         """
@@ -270,9 +276,16 @@ class ApiInteraction:
         try:
             # Attempt to retrieve and format the email body content
             raw_body = self.one_message_keyword_filter.get("body", "")
-            filtered_body = (
-                raw_body.split(">", 1)[0].replace("  ", " ").replace("\n", "")
-            )
+            if ">" in raw_body:
+                cleared_body = raw_body.split(">", 1)[0]
+            if "**" in raw_body:
+                cleared_body = raw_body.split("**", 1)[0]
+            if cleared_body:
+                filtered_body = (
+                    cleared_body.replace("  ", " ").replace("\n", "")
+                )
+            else:
+                filtered_body = (raw_body.replace("  ", " ").replace("\n", ""))
             filtered_body_without_spaces = filtered_body.lower().replace(" ", "")
         except Exception as e:
             self.logger.error("Error processing email body: %s", e)
@@ -280,7 +293,12 @@ class ApiInteraction:
         for item in self.list_of_optional_hours:
             try:
                 date_time, _, location = item
-                formatted_string = f"{date_time.split('T')[0]} ({self.utility.day_of_a_week(date_time)}) o godz. {date_time.split('T')[1][0:-9]} na siłowni {location}"
+                formatted_string = workout_hour_form(
+                    date_time.split('T')[0],
+                    self.utility.translator(self.utility.day_of_a_week(date_time)),
+                    date_time.split('T')[1][0:-9],
+                    location
+                    )
                 formatted_string_without_spaces = formatted_string.lower().replace(
                     " ", ""
                 )
@@ -312,11 +330,17 @@ class ApiInteraction:
             sender_choice (list): Information about the selected workout hour.
         """
         date_time, _, location = sender_choice
-        workout_datetime = f"{date_time.split('T')[0]} ({self.utility.day_of_a_week(date_time)}) o godz. {date_time.split('T')[1][0:-9]}"
-        confirmation_body = auto_confirmation(workout_datetime, location, customer_name)
+        subject, confirmation_body = auto_confirmation(
+            date_time.split('T')[0],
+            self.utility.translator(self.utility.day_of_a_week(date_time)),
+            date_time.split('T')[1][0:-9],
+            self.utility.translator('training'),
+            location,
+            customer_name
+            )
         self.send_message(
             sender_email,
-            f"Potwierdzenie - trening {workout_datetime}",
+            subject,
             confirmation_body,
         )
         print(f"Confirmation has been sent to {customer_name} - {sender_email}")
@@ -355,7 +379,7 @@ class ApiInteraction:
                         updated_event["attendees"].append(new_attendee)
                     else:
                         updated_event["attendees"] = [new_attendee]
-                    updated_event["summary"] = f"Training - {customer_name}"
+                    updated_event["summary"] = f"{self.utility.translator('training').title()} - {customer_name}"
                     self.calendar_service.events().update(  # pylint:disable=maybe-no-member
                         calendarId="primary", eventId=event_id, body=updated_event
                     ).execute()
@@ -403,7 +427,9 @@ class ApiInteraction:
                 try:
                     location = str(event["location"])
                 except KeyError:
-                    location = ""
+                    self.logger.error(f"'{CALENDAR_OPTIONAL_HOUR_NAME}' hour planned {datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()} at {start.split('T')[1][0:-9]} CANNOT BE proposed to the customer - NO LOCATION")
+                    print(f"'{CALENDAR_OPTIONAL_HOUR_NAME}' hour planned {datetime.strptime(start.split("T")[0], "%Y-%m-%d").date()} at {start.split('T')[1][0:-9]} CANNOT BE proposed to the customer - NO LOCATION")
+                    continue
                 if location not in self.gyms:
                     self.gyms.append(location)
                 self.list_of_optional_hours.append([start, event["summary"], location])
@@ -452,6 +478,8 @@ class ApiInteraction:
             customer_name = self.extract_name_from_email(header_from)
             self.schedule_workout(sender_email, sender_choice, customer_name)
         else:
+            self.something_happened = True
+            self.removing_unread_label_blocker = True
             print(
                 "I couldn't find the client's choice of a workout. You have to do it manually :("
             )
@@ -643,8 +671,11 @@ class ApiInteraction:
             for item in self.list_of_optional_hours:
                 date_time, _, location = item
                 self.formatted_workout_strings.append(
-                    f"\n {date_time.split('T')[0]} ({self.utility.day_of_a_week(date_time)}) o godz. {date_time.split('T')[1][0:-9]} na siłowni {location}"
-                )
+                    workout_hour_form(
+                        date_time.split('T')[0],
+                        self.utility.translator(self.utility.day_of_a_week(date_time)),
+                        date_time.split('T')[1][0:-9],
+                        location))
         return "\n".join(self.formatted_workout_strings)
 
     def answering_to_first_mails(self) -> None:

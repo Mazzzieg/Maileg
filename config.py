@@ -1,13 +1,16 @@
 #Configuration settings for the Maileg script. Set the variables to suit your specific needs.
 
 # Gmail settings
-USER_EMAIL: str = "your-email@gmail.com" 
+USER_EMAIL: str = "your-email@gmail.com"
 
 # Keywords that might be used by customer in mail, that script will be filtering and searching for
 KEYWORDS: list = ["keyword_1", "keyword_2"]
 
 # NOT case-sensitive
 CALENDAR_OPTIONAL_HOUR_NAME: str = "wolne"
+
+# Choice of a language used in generating week day ('polski','german','spanish' or leave empty for english)
+LANGUAGE = ''
 
 # Email settings
 def auto_reply(customer_name: str, workouts: str):
@@ -28,19 +31,28 @@ Best Regards,
 """
     return reply
 
+def workout_hour_form(date: str, day_of_a_week: str, hour: str, location: str):
+    """
+    Function generating single workout hour proposition.
+    """
+    hour = f"{date} ({day_of_a_week}) at {hour} in {location}"
+    return hour
 
-def auto_confirmation(workout_datetime: str, location: str, customer_name: str):
+def auto_confirmation(date: str, day_of_a_week: str, hour: str, workout_in_correct_language : str, location: str, customer_name: str):
     """
     Function generating confirmation of scheduling a workout.
     """
+    # Confirmations mail subject
+    subject = f"Confirmation - {workout_in_correct_language.capitalize()} {date} ({day_of_a_week}) at {hour}"
+    
     # Message for confirmation emails
     reply = f"""
 Dear {customer_name},
 
-This is a confirmation of scheduling your workout at {workout_datetime} in {location}.
+This is a confirmation of scheduling your workout at {date} ({day_of_a_week}) at {hour} in {location}.
 Can't wait to see you there!
 
 Best Regards,
 [Your Name]
 """
-    return reply
+    return subject, reply
