@@ -678,7 +678,7 @@ class ApiInteraction:
                         location))
         return "\n".join(self.formatted_workout_strings)
 
-    def answering_to_first_mails(self) -> None:
+    def answering_to_first_mails(self, without_answering_mode : bool = False) -> None:
         """
         Answer the first email that passed the filter
         and is from a new customer (not waiting for an answer/confirmation).
@@ -687,14 +687,27 @@ class ApiInteraction:
             if not self.list_of_optional_hours:
                 self.calendar_stuff()
             workout_options = self.prepare_workout_options()
-            for mail in self.mails_to_answer:
-                body = auto_reply(mail[2], workout_options)
-                self.send_message(mail[0], f"RE:{mail[1]}", body)
-                print(f"Response has been sent to {mail[2]} - {mail[0]}")
-                self.file_management.sent_mails_waiting_for_answer_or_confirmation.append(
-                    {mail[0] : datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
-                    )
-            self.file_management.add_to_waiting_list()
+            if not without_answering_mode:
+                for mail in self.mails_to_answer:
+                    body = auto_reply(mail[2], workout_options)
+                    self.send_message(mail[0], f"RE:{mail[1]}", body)
+                    print(f"Response has been sent to {mail[2]} - {mail[0]}")
+                    self.file_management.sent_mails_waiting_for_answer_or_confirmation.append(
+                        {mail[0] : datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+                        )
+                self.file_management.add_to_waiting_list()
+            if without_answering_mode:
+                for mail in self.mails_to_answer:
+                    prepared_responce_folder = f"./users/{self.user_mail}/prepared_responce_file/{datetime.now().strftime("%Y-%m-%d")}"
+                    prepared_responce_file = f"./users/{self.user_mail}/prepared_responce_file/{datetime.now().strftime("%Y-%m-%d")}/{datetime.now().strftime("%H-%M-%S")}.txt"
+                    if not os.path.exists(prepared_responce_folder):
+                        os.makedirs(prepared_responce_folder)
+                    body = auto_reply(mail[2], workout_options)
+                    with open(prepared_responce_file, 'w', encoding='UTF-8', newline='\n') as f:
+                        f.write(f"Destination - {mail[0]}")
+                        f.write(f"\nSubject - RE:{mail[1]}")
+                        f.write(f"\nBody - {body}")
+                    print(f"Response to {mail[2]} - {mail[0]} has been prepared and saved to the {prepared_responce_file}")
         else:
             if not self.something_happened:
                 print("I've done nothing because.... There is nothing to do!")

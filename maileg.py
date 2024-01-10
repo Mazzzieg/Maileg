@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from datetime import datetime
+import argparse
 
 from google.auth.exceptions import TransportError, RefreshError  # type: ignore # pylint: disable=import-error
 
@@ -38,7 +39,7 @@ class Maileg:
         and calendar event scheduling based on user settings.
     """
 
-    def __init__(self, mail: str = USER_EMAIL, keywords: list = KEYWORDS):
+    def __init__(self, mail: str = USER_EMAIL, keywords: list = KEYWORDS, args = None):
         """
         Initializes a new instance of the Maileg class with specific user email and keywords.
 
@@ -51,6 +52,7 @@ class Maileg:
         """
         self.user_mail: str = mail
         self.keywords: list = keywords
+        self.args = args
 
         self.logger = self.logging_configure()
         self.api_interactor = ApiInteraction(
@@ -142,7 +144,6 @@ class Maileg:
         self.logger.info("Received %s message(s).", len(results))
         for message in results:
             self.process_individual_email(message)
-        self.finalize_email_processing(f"to:me newer_than:{how_many_days}d Is:unread")
 
     def process_individual_email(self, message) -> None:
         """
@@ -159,18 +160,13 @@ class Maileg:
         self.api_interactor.read_message(message)
         self.api_interactor.received_email_filters()
 
-    def finalize_email_processing(self, query) -> None:
+    def answering_to_mails(self, without_answering_mode: bool = False) -> None:
         """
         Finalizes the email processing routine.
 
         This method performs the final steps in the email processing workflow. It involves responding to
         new messages filtered as questions and marking processed emails as read to prevent reprocessing.
         It also provides feedback on the overall process completion.
-
-        Parameters
-        ----------
-        query : str
-            The query string used to retrieve and process the emails. It is used here to mark emails as read.
 
         Notes
         -----
@@ -183,9 +179,9 @@ class Maileg:
                 len(self.api_interactor.mails_to_answer)
                 )
             print(f"Recieved {len(self.api_interactor.mails_to_answer)} new message(s) filtered as QUESTION(S).")
-            self.api_interactor.answering_to_first_mails()
+            self.api_interactor.answering_to_first_mails(without_answering_mode)
 
-        # Remove 'unread' label from analyzed emails to prevent reprocessing
+    def removing_unread_label(self, query: str) -> None:
         if self.api_interactor.removing_unread_label_blocker is False:
             self.api_interactor.mark_as_read(query)
 
@@ -208,4 +204,18 @@ class Maileg:
         self.gmail_service = self.api_interactor.gmail_service
         self.calendar_service = self.api_interactor.calendar_service
         self.process_emails(how_many_days)
+        self.answering_to_mails(self.args.without_answering)
+        
+        self.removing_unread_label(f"to:me newer_than:{how_many_days}d Is:unread")
         self.logger.info("Email processing completed.")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run the Maileg email processing script.")
+    parser.add_argument("--without_answering", action="store_true", help="Run script without sending answers.")
+    parser.add_argument("--days", type=int, default=1, help="Number of days to look back for processing emails.")
+    argps = parser.parse_args()
+
+    # Create an instance of Maileg and run main method
+    maileg_instance = Maileg(USER_EMAIL, KEYWORDS)
+    maileg_instance.args = argps
+    maileg_instance.main(argps.days)

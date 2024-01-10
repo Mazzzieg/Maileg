@@ -93,7 +93,7 @@ class FileManagement:
         if not os.path.exists(today_dir):
             os.makedirs(today_dir)
         self.folder_name = today_dir
-        self.file_name = f"{today_dir}/{datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+        self.file_name = f"{today_dir}/{datetime.today().strftime('%H-%M-%S')}.txt"
 
     def creds_finder(self):
         """
@@ -201,9 +201,9 @@ class FileManagement:
             return
         try:
             with open(file_path, "r", encoding="UTF-8") as f:
-                lines = f.readlines()
+                lines = [line for line in f if line.strip() and sender_email not in line]
             with open(file_path, "w", encoding="UTF-8") as f:
-                f.writelines(line for line in lines if sender_email not in line)
+                f.writelines(lines)
         except Exception as e:
             self.logger.error("Error updating waiting list: %s", e, exc_info=True)
             raise
@@ -213,11 +213,15 @@ class FileManagement:
         Update the list of emails waiting for a response.
         """
         file_path = f"./users/{self.user_mail}/mails_waiting_for_answer.txt"
-        with open(file_path, "a", encoding="UTF-8") as f:
+        with open(file_path, "a+", encoding="UTF-8") as f:
+            f.seek(0)
+            lines = [line for line in f if line.strip()]
+            if lines and not lines[-1].endswith('\n'):
+                f.write('\n')
             for dictionary_of_sender in self.sent_mails_waiting_for_answer_or_confirmation:
                 for customers_mail, date_of_response in dictionary_of_sender.items():
                     if customers_mail and date_of_response:
-                        f.write(f"\n  {customers_mail}: {date_of_response}")
+                        f.write(f"{customers_mail}: {date_of_response}\n")
 
     def update_sent_mails_waiting_for_answer_from_file(self) -> None:
         """
