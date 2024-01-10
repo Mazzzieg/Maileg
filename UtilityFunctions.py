@@ -111,6 +111,8 @@ class UtilityFunctions:
             try:
                 return translations[language][word.lower()]
             except KeyError:
+                if word.lower() in translations[language].values():
+                    return word
                 self.logger.warning("Translation for '%s' in '%s' not found. Using English word.", word, language)
                 return word
         else:
