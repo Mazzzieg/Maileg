@@ -656,7 +656,7 @@ class ApiInteraction:
         """
         for keyword in self.keywords:
             for value in self.one_message_keyword_filter.values():
-                if keyword in value.lower():
+                if keyword.lower() in value.lower():
                     return True
         return False
 

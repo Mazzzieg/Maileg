@@ -205,14 +205,25 @@ class Maileg:
         self.calendar_service = self.api_interactor.calendar_service
         self.process_emails(how_many_days)
         self.answering_to_mails(self.args.without_answering)
-        
+
         self.removing_unread_label(f"to:me newer_than:{how_many_days}d Is:unread")
         self.logger.info("Email processing completed.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the Maileg email processing script.")
-    parser.add_argument("--without_answering", action="store_true", help="Run script without sending answers.")
-    parser.add_argument("--days", type=int, default=1, help="Number of days to look back for processing emails.")
+    parser = argparse.ArgumentParser(
+        description="Run the Maileg email processing script."
+        )
+    parser.add_argument(
+        "--without_answering",
+        action="store_true",
+        help="Run script without sending answers."
+        )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=1,
+        help="Number of days to look back for processing emails."
+        )
     argps = parser.parse_args()
 
     # Create an instance of Maileg and run main method
