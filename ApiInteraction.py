@@ -442,15 +442,19 @@ class ApiInteraction:
                 be = "is"
             else:
                 be = "are"
-            print(
-                f"There {be} ONLY {len(self.list_of_optional_hours)} optional workout hour(s) found in day(s) {min(self.dates)} - {max(self.dates)}."
-            )
-            self.logger.warning(
-                f"There {be} ONLY %s optional workout hour(s) found in day(s) %s - %s.",
-                len(self.list_of_optional_hours),
-                min(self.dates),
-                max(self.dates),
-            )
+            if self.dates:
+                print(
+                    f"There {be} ONLY {len(self.list_of_optional_hours)} optional workout hour(s) found in day(s) {min(self.dates)} - {max(self.dates)}."
+                )
+                self.logger.warning(
+                    f"There {be} ONLY %s optional workout hour(s) found in day(s) %s - %s.",
+                    len(self.list_of_optional_hours),
+                    min(self.dates),
+                    max(self.dates),
+                )
+            else:
+                print("No optional workout hours found.")
+                self.logger.warning("No optional workout hours found.")
 
     # RECIEVED MAILS
     def extract_name_from_email(self, header_from):
